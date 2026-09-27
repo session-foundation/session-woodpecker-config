@@ -86,10 +86,24 @@ translated into something that might behave differently.
 
 ## Running the service
 
+Build a static binary (the binary re-executes itself to evaluate configs, so it is the only file
+needed) and install it:
+
 ```
-go build ./cmd/session-woodpecker-config
-curl -o woodpecker-key.pem https://ci.example.org/api/signature/public-key
-./session-woodpecker-config -public-key woodpecker-key.pem -listen 127.77.0.1:8124
+CGO_ENABLED=0 go build -trimpath ./cmd/session-woodpecker-config
+install session-woodpecker-config /usr/local/bin/
+```
+
+Fetch the public key of the Woodpecker server (which must already be running, since it generates
+the key on first start), then install and start the systemd unit from `contrib/`:
+
+```
+mkdir -p /etc/session-woodpecker-config
+curl -o /etc/session-woodpecker-config/woodpecker-key.pem https://ci.example.org/api/signature/public-key
+install -m 644 contrib/session-woodpecker-config.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now session-woodpecker-config
+curl http://127.77.0.1:8124/healthz
 ```
 
 Every request must be signed by the Woodpecker server whose public key is given. The service holds
