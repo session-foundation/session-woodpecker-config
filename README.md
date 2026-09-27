@@ -103,7 +103,7 @@ curl -o /etc/session-woodpecker-config/woodpecker-key.pem https://ci.example.org
 install -m 644 contrib/session-woodpecker-config.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now session-woodpecker-config
-curl 'http://[::1]:8124/healthz'
+curl 'http://[::1]:7776/healthz'
 ```
 
 Every request must be signed by the Woodpecker server whose public key is given, and the service
@@ -116,7 +116,7 @@ signature; with nginx, that means a `proxy_pass` without a path:
 
 ```nginx
 location = /config-extension {
-    proxy_pass http://[::1]:8124;
+    proxy_pass http://[::1]:7776;
 }
 ```
 
