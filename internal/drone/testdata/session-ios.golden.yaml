@@ -1,0 +1,200 @@
+# Unit Tests.yaml
+labels:
+    backend: local
+    platform: darwin/arm64
+steps:
+    - commands:
+        - git --version
+        - xcbeautify --version
+        - xcresultparser --version
+        - xcodebuild -version
+        - xcodebuild -showsdks
+        - xcode-select -p
+        - xcrun simctl list runtimes
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+        LANG: en_US.UTF-8
+      image: sh
+      name: Version Information
+    - commands:
+        - ./Scripts/reset_spm_cache.sh
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: Reset SPM Cache if Needed
+    - commands:
+        - ./Scripts/clean_up_old_test_simulators.sh
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: Clean up Old Test Simulators if Needed
+    - commands:
+        - devname="Test-iPhone-${CI_COMMIT_SHA:0:9}-${CI_PIPELINE_EVENT}"
+        - sdk_version=$(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || echo "")
+        - runtime=$(xcrun simctl list runtimes -j | jq -r --arg v "$sdk_version" '[.runtimes[] | select(.platform == "iOS" and .isAvailable == true)] | (map(select(.version == $v))[0] // sort_by(.version)[-1]) | .identifier')
+        - 'echo "Using runtime: $runtime  (SDK: $sdk_version)"'
+        - device_type=$(xcrun simctl list devicetypes -j | jq -r '.devicetypes | map(select(.productFamily=="iPhone")) | sort_by(.minRuntimeVersion) | .[-1].identifier' | tail -n1); xcrun simctl create "$devname" "$device_type"
+        - sim_uuid=$(xcrun simctl list devices -je | jq -re '[.devices[][] | select(.name == "'$devname'").udid][0]')
+        - xcrun simctl boot $sim_uuid
+        - mkdir -p build/artifacts
+        - echo $sim_uuid > ./build/artifacts/sim_uuid
+        - echo $devname > ./build/artifacts/device_name
+        - 'xcrun simctl list -je devices $sim_uuid | jq -r ''.devices[][0] | "\u001b[32;1mSimulator " + .state + ": \u001b[34m" + .name + " (\u001b[35m" + .deviceTypeIdentifier + ", \u001b[36m" + .udid + "\u001b[34m)\u001b[0m"'''
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: Boot Test Simulator
+    - commands:
+        - /Users/$USER/sim-keepalive/keepalive.sh $(<./build/artifacts/sim_uuid)
+      depends_on:
+        - Boot Test Simulator
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: (Simulator keep-alive)
+    - commands:
+        - ./Scripts/build_ci.sh test -destination "platform=iOS Simulator,id=$(<./build/artifacts/sim_uuid)" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 10 -collect-test-diagnostics never ENABLE_TESTABILITY=YES
+      depends_on:
+        - Reset SPM Cache if Needed
+        - Clean up Old Test Simulators if Needed
+        - Boot Test Simulator
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: Build and Run Tests
+    - commands:
+        - echo "Signaling simulator keep-alive to stop and clean up..."
+        - if [ -f build/artifacts/sim_uuid ]; then rm -f /Users/$USER/sim-keepalive/$(<./build/artifacts/sim_uuid); fi
+      depends_on:
+        - Build and Run Tests
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: Stop Simulator Keep-Alive
+      when:
+        - status:
+            - success
+            - failure
+    - commands:
+        - echo "--- FAILED TESTS ---"
+        - xcresultparser --output-format cli --failed-tests-only ./build/artifacts/testResults.xcresult
+        - exit 1
+      depends_on:
+        - Build and Run Tests
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: Log Failed Test Summary
+      when:
+        - status:
+            - failure
+    - commands:
+        - xcresultparser --output-format cobertura ./build/artifacts/testResults.xcresult > ./build/artifacts/coverage.xml
+      depends_on:
+        - Build and Run Tests
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: Generate Code Coverage Report
+      when:
+        - status:
+            - success
+when:
+    - event:
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# Check Build Artifact Existence.yaml
+labels:
+    backend: local
+    platform: darwin/arm64
+steps:
+    - commands:
+        - ./Scripts/drone-upload-exists.sh
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: Poll for build artifact existence
+when:
+    - event:
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# Simulator Build.yaml
+labels:
+    backend: local
+    platform: darwin/arm64
+steps:
+    - commands:
+        - git --version
+        - xcbeautify --version
+        - xcresultparser --version
+        - xcodebuild -version
+        - xcodebuild -showsdks
+        - xcode-select -p
+        - xcrun simctl list runtimes
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+        LANG: en_US.UTF-8
+      image: sh
+      name: Version Information
+    - commands:
+        - ./Scripts/reset_spm_cache.sh
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: Reset SPM Cache if Needed
+    - commands:
+        - ./Scripts/clean_up_old_test_simulators.sh
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: Clean up Old Test Simulators if Needed
+    - commands:
+        - ./Scripts/build_ci.sh archive -sdk iphonesimulator -archivePath ./build/Session_sim.xcarchive -destination "generic/platform=iOS Simulator" DEBUG_INFORMATION_FORMAT=dwarf
+      depends_on:
+        - Reset SPM Cache if Needed
+        - Clean up Old Test Simulators if Needed
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: Build
+    - commands:
+        - ./Scripts/drone-static-upload.sh
+      depends_on:
+        - Build
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+        SSH_KEY:
+            from_secret: SSH_KEY
+      image: sh
+      name: Upload artifacts
+when:
+    - event:
+        - push
+        - tag
+        - deployment
+        - cron
+        - manual
+

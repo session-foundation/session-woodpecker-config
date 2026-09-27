@@ -1,0 +1,703 @@
+# Debian sid (amd64).yaml
+labels:
+    backend: docker
+    platform: linux/amd64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: drone/git
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - echo "man-db man-db/auto-update boolean false" | debconf-set-selections
+        - apt-get -o=Dpkg::Use-Pty=0 -q update
+        - apt-get -o=Dpkg::Use-Pty=0 -q install -y eatmydata
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  install --no-install-recommends -y lsb-release
+        - cp contrib/deb.session.foundation.gpg /etc/apt/trusted.gpg.d
+        - echo deb http://deb.session.foundation sid main >/etc/apt/sources.list.d/session.list
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  update
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q dist-upgrade -y
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q install -y cmake git ninja-build pkg-config ccache g++ libsodium-dev libzmq3-dev liboxenc-dev
+        - mkdir build
+        - cd build
+        - 'cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Release -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON '
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: registry.oxen.rocks/debian-sid
+      name: build
+      pull: true
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# Debian sid: Debug (amd64).yaml
+labels:
+    backend: docker
+    platform: linux/amd64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: drone/git
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - echo "man-db man-db/auto-update boolean false" | debconf-set-selections
+        - apt-get -o=Dpkg::Use-Pty=0 -q update
+        - apt-get -o=Dpkg::Use-Pty=0 -q install -y eatmydata
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  install --no-install-recommends -y lsb-release
+        - cp contrib/deb.session.foundation.gpg /etc/apt/trusted.gpg.d
+        - echo deb http://deb.session.foundation sid main >/etc/apt/sources.list.d/session.list
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  update
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q dist-upgrade -y
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q install -y cmake git ninja-build pkg-config ccache g++ libsodium-dev libzmq3-dev liboxenc-dev
+        - mkdir build
+        - cd build
+        - 'cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Debug -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON '
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: registry.oxen.rocks/debian-sid
+      name: build
+      pull: true
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# Debian sid: clang-19 (amd64).yaml
+labels:
+    backend: docker
+    platform: linux/amd64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: drone/git
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - echo "man-db man-db/auto-update boolean false" | debconf-set-selections
+        - apt-get -o=Dpkg::Use-Pty=0 -q update
+        - apt-get -o=Dpkg::Use-Pty=0 -q install -y eatmydata
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  install --no-install-recommends -y lsb-release
+        - cp contrib/deb.session.foundation.gpg /etc/apt/trusted.gpg.d
+        - echo deb http://deb.session.foundation sid main >/etc/apt/sources.list.d/session.list
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  update
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q dist-upgrade -y
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q install -y cmake git ninja-build pkg-config ccache clang-19 clang-tools-19 libsodium-dev libzmq3-dev liboxenc-dev
+        - mkdir build
+        - cd build
+        - 'cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Release -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON -DCMAKE_C_COMPILER=clang-19 -DCMAKE_CXX_COMPILER=clang++-19 '
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: registry.oxen.rocks/debian-sid-clang
+      name: build
+      pull: true
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# Debian sid: llvm-23 (amd64).yaml
+labels:
+    backend: docker
+    platform: linux/amd64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: drone/git
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - echo "man-db man-db/auto-update boolean false" | debconf-set-selections
+        - apt-get -o=Dpkg::Use-Pty=0 -q update
+        - apt-get -o=Dpkg::Use-Pty=0 -q install -y eatmydata
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  install --no-install-recommends -y lsb-release
+        - cp contrib/deb.session.foundation.gpg /etc/apt/trusted.gpg.d
+        - echo deb http://deb.session.foundation sid main >/etc/apt/sources.list.d/session.list
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  update
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q dist-upgrade -y
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q install -y cmake git ninja-build pkg-config ccache clang-23 clang-tools-23 lld-23 libc++-23-dev libc++abi-23-dev libsodium-dev libzmq3-dev liboxenc-dev
+        - mkdir build
+        - cd build
+        - cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Release -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23 -DCMAKE_CXX_FLAGS=-stdlib=libc++  -DOXEN_LOGGING_FORCE_SUBMODULES=ON -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld-23 -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld-23 -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld-23 -DCMAKE_STATIC_LINKER_FLAGS=-fuse-ld=lld-23
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: registry.oxen.rocks/debian-sid-clang
+      name: build
+      pull: true
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# Debian sid (ARM64).yaml
+labels:
+    backend: docker
+    platform: linux/arm64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: linux
+      image: drone/git
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - echo "man-db man-db/auto-update boolean false" | debconf-set-selections
+        - apt-get -o=Dpkg::Use-Pty=0 -q update
+        - apt-get -o=Dpkg::Use-Pty=0 -q install -y eatmydata
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  install --no-install-recommends -y lsb-release
+        - cp contrib/deb.session.foundation.gpg /etc/apt/trusted.gpg.d
+        - echo deb http://deb.session.foundation sid main >/etc/apt/sources.list.d/session.list
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  update
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q dist-upgrade -y
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q install -y cmake git ninja-build pkg-config ccache g++ libsodium-dev libzmq3-dev liboxenc-dev
+        - mkdir build
+        - cd build
+        - 'cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Release -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON '
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: linux
+      image: registry.oxen.rocks/debian-sid
+      name: build
+      pull: true
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# Debian stable (i386).yaml
+labels:
+    backend: docker
+    platform: linux/amd64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: drone/git
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - echo "man-db man-db/auto-update boolean false" | debconf-set-selections
+        - apt-get -o=Dpkg::Use-Pty=0 -q update
+        - apt-get -o=Dpkg::Use-Pty=0 -q install -y eatmydata
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  install --no-install-recommends -y lsb-release
+        - cp contrib/deb.session.foundation.gpg /etc/apt/trusted.gpg.d
+        - echo deb http://deb.session.foundation $$(lsb_release -sc) main >/etc/apt/sources.list.d/session.list
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  update
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q dist-upgrade -y
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q install -y cmake git ninja-build pkg-config ccache g++ libsodium-dev libzmq3-dev liboxenc-dev
+        - mkdir build
+        - cd build
+        - 'cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Release -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON '
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: registry.oxen.rocks/debian-stable/i386
+      name: build
+      pull: true
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# Debian stable (armhf).yaml
+labels:
+    backend: docker
+    platform: linux/arm64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: linux
+      image: drone/git
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - echo "man-db man-db/auto-update boolean false" | debconf-set-selections
+        - apt-get -o=Dpkg::Use-Pty=0 -q update
+        - apt-get -o=Dpkg::Use-Pty=0 -q install -y eatmydata
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  install --no-install-recommends -y lsb-release
+        - cp contrib/deb.session.foundation.gpg /etc/apt/trusted.gpg.d
+        - echo deb http://deb.session.foundation $$(lsb_release -sc) main >/etc/apt/sources.list.d/session.list
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  update
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q dist-upgrade -y
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q install -y cmake git ninja-build pkg-config ccache g++ libsodium-dev libzmq3-dev liboxenc-dev
+        - mkdir build
+        - cd build
+        - 'cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Release -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON '
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: linux
+      image: registry.oxen.rocks/debian-stable/arm32v7
+      name: build
+      pull: true
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# Debian bookworm (amd64).yaml
+labels:
+    backend: docker
+    platform: linux/amd64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: drone/git
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - echo "man-db man-db/auto-update boolean false" | debconf-set-selections
+        - apt-get -o=Dpkg::Use-Pty=0 -q update
+        - apt-get -o=Dpkg::Use-Pty=0 -q install -y eatmydata
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  install --no-install-recommends -y lsb-release
+        - cp contrib/deb.session.foundation.gpg /etc/apt/trusted.gpg.d
+        - echo deb http://deb.session.foundation $$(lsb_release -sc) main >/etc/apt/sources.list.d/session.list
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  update
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q dist-upgrade -y
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q install -y cmake git ninja-build pkg-config ccache g++ libsodium-dev libzmq3-dev liboxenc-dev
+        - mkdir build
+        - cd build
+        - 'cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Release -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON '
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: registry.oxen.rocks/debian-bookworm
+      name: build
+      pull: true
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# Debian bookworm (armhf).yaml
+labels:
+    backend: docker
+    platform: linux/arm64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: linux
+      image: drone/git
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - echo "man-db man-db/auto-update boolean false" | debconf-set-selections
+        - apt-get -o=Dpkg::Use-Pty=0 -q update
+        - apt-get -o=Dpkg::Use-Pty=0 -q install -y eatmydata
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  install --no-install-recommends -y lsb-release
+        - cp contrib/deb.session.foundation.gpg /etc/apt/trusted.gpg.d
+        - echo deb http://deb.session.foundation $$(lsb_release -sc) main >/etc/apt/sources.list.d/session.list
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  update
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q dist-upgrade -y
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q install -y cmake git ninja-build pkg-config ccache g++ libsodium-dev libzmq3-dev liboxenc-dev
+        - mkdir build
+        - cd build
+        - 'cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Release -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON '
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: linux
+      image: registry.oxen.rocks/debian-bookworm/arm32v7
+      name: build
+      pull: true
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# Ubuntu jammy (amd64).yaml
+labels:
+    backend: docker
+    platform: linux/amd64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: drone/git
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - echo "man-db man-db/auto-update boolean false" | debconf-set-selections
+        - apt-get -o=Dpkg::Use-Pty=0 -q update
+        - apt-get -o=Dpkg::Use-Pty=0 -q install -y eatmydata
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  install --no-install-recommends -y lsb-release
+        - cp contrib/deb.session.foundation.gpg /etc/apt/trusted.gpg.d
+        - echo deb http://deb.session.foundation $$(lsb_release -sc) main >/etc/apt/sources.list.d/session.list
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  update
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q dist-upgrade -y
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q install -y cmake git ninja-build pkg-config ccache g++ libsodium-dev libzmq3-dev liboxenc-dev
+        - mkdir build
+        - cd build
+        - 'cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Release -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON '
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: registry.oxen.rocks/ubuntu-jammy
+      name: build
+      pull: true
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# Ubuntu noble (amd64).yaml
+labels:
+    backend: docker
+    platform: linux/amd64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: drone/git
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - echo "man-db man-db/auto-update boolean false" | debconf-set-selections
+        - apt-get -o=Dpkg::Use-Pty=0 -q update
+        - apt-get -o=Dpkg::Use-Pty=0 -q install -y eatmydata
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  install --no-install-recommends -y lsb-release
+        - cp contrib/deb.session.foundation.gpg /etc/apt/trusted.gpg.d
+        - echo deb http://deb.session.foundation $$(lsb_release -sc) main >/etc/apt/sources.list.d/session.list
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q  update
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q dist-upgrade -y
+        - eatmydata apt-get -o=Dpkg::Use-Pty=0 -q install -y cmake git ninja-build pkg-config ccache g++ libsodium-dev libzmq3-dev liboxenc-dev
+        - mkdir build
+        - cd build
+        - 'cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Release -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON '
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        CLICOLOR_FORCE: "1"
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: linux
+      image: registry.oxen.rocks/ubuntu-noble
+      name: build
+      pull: true
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# MacOS (amd64) Release.yaml
+labels:
+    backend: local
+    platform: darwin/amd64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+        - ulimit -n 1024
+        - mkdir build
+        - cd build
+        - 'cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Release -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache '
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: darwin
+        SSH_KEY:
+            from_secret: SSH_KEY
+      image: sh
+      name: build
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# MacOS (amd64) Debug.yaml
+labels:
+    backend: local
+    platform: darwin/amd64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+        - ulimit -n 1024
+        - mkdir build
+        - cd build
+        - 'cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Debug -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache '
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        DRONE_STAGE_ARCH: amd64
+        DRONE_STAGE_OS: darwin
+        SSH_KEY:
+            from_secret: SSH_KEY
+      image: sh
+      name: build
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# MacOS (arm64) Release.yaml
+labels:
+    backend: local
+    platform: darwin/arm64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+        - ulimit -n 1024
+        - mkdir build
+        - cd build
+        - 'cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Release -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache '
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+        SSH_KEY:
+            from_secret: SSH_KEY
+      image: sh
+      name: build
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
+# MacOS (arm64) Debug.yaml
+labels:
+    backend: local
+    platform: darwin/arm64
+steps:
+    - commands:
+        - git fetch --tags
+        - git submodule update --init --recursive --depth=1
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+      image: sh
+      name: submodules
+    - commands:
+        - echo "Building on $${CI_MACHINE}"
+        - export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+        - ulimit -n 1024
+        - mkdir build
+        - cd build
+        - 'cmake .. -G Ninja -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_BUILD_TYPE=Debug -DWARNINGS_AS_ERRORS=OFF -DOXENMQ_BUILD_TESTS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache '
+        - ninja -v
+        - cd ..
+        - cd build
+        - ./tests/tests --colour-mode ansi
+        - cd ..
+      environment:
+        DRONE_STAGE_ARCH: arm64
+        DRONE_STAGE_OS: darwin
+        SSH_KEY:
+            from_secret: SSH_KEY
+      image: sh
+      name: build
+when:
+    - event:
+        - push
+        - pull_request
+        - tag
+        - deployment
+        - cron
+        - manual
+
