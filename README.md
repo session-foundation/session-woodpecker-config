@@ -103,23 +103,31 @@ curl -o /etc/session-woodpecker-config/woodpecker-key.pem https://ci.example.org
 install -m 644 contrib/session-woodpecker-config.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now session-woodpecker-config
-curl http://127.77.0.1:8124/healthz
+curl 'http://[::1]:8124/healthz'
 ```
 
-Every request must be signed by the Woodpecker server whose public key is given. The service holds
-no secrets and needs no network access of its own, so it can safely be exposed publicly, but use
-TLS if Woodpecker reaches it over a network: whoever can alter its responses can inject pipeline
-steps. See `-help` for resource limits and other options.
+Every request must be signed by the Woodpecker server whose public key is given, and the service
+holds no secrets and needs no network access of its own, so it can safely be exposed publicly. The
+recommended setup is to expose it through the reverse proxy in front of Woodpecker, which provides
+TLS (whoever can alter its responses can inject pipeline steps) and means the default
+`WOODPECKER_EXTENSIONS_ALLOWED_HOSTS`, which refuses loopback and private addresses, can stay in
+place. The proxy must pass the request path through unchanged, since it is covered by the request
+signature; with nginx, that means a `proxy_pass` without a path:
+
+```nginx
+location = /config-extension {
+    proxy_pass http://[::1]:8124;
+}
+```
+
+See `-help` for resource limits and other options.
 
 Woodpecker server configuration:
 
 ```
-WOODPECKER_CONFIG_EXTENSION_ENDPOINT=http://127.77.0.1:8124/config
-WOODPECKER_EXTENSIONS_ALLOWED_HOSTS=127.77.0.1/32
+WOODPECKER_CONFIG_EXTENSION_ENDPOINT=https://ci.example.org/config-extension
 WOODPECKER_DEFAULT_PIPELINE_CONFIGS=.woodpecker/,.woodpecker.jsonnet,.woodpecker.star,.woodpecker.yaml,.woodpecker.yml,.drone.jsonnet
 WOODPECKER_DEFAULT_PIPELINE_CONFIG_EXTENSIONS=.yaml,.yml,.jsonnet,.star
 ```
 
-`WOODPECKER_EXTENSIONS_ALLOWED_HOSTS` is only needed for a non-public address: by default Woodpecker
-refuses to contact extensions on loopback or private addresses. Leave per-repository config paths
-unset, since they replace the default search order entirely.
+Leave per-repository config paths unset, since they replace the default search order entirely.

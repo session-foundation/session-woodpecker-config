@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 ExecStart=/usr/local/bin/session-woodpecker-config \
-    -listen 127.77.0.1:8124 \
+    -listen [::1]:8124 \
     -public-key /etc/session-woodpecker-config/woodpecker-key.pem
 Restart=on-failure
 # The service needs nothing but its binary and the key, so it can be locked down tightly.
