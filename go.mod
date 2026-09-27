@@ -5,6 +5,7 @@ go 1.27.0
 require (
 	github.com/google/go-jsonnet v0.22.0
 	go.starlark.net v0.0.0-20260908191801-89a6a09411d5
+	go.yaml.in/yaml/v3 v3.0.5
 )
 
 require (
