@@ -1,4 +1,10 @@
 # Debian sid (amd64).yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: docker
     platform: linux/amd64
@@ -48,6 +54,12 @@ when:
         - manual
 
 # Debian sid: Debug (amd64).yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: docker
     platform: linux/amd64
@@ -97,6 +109,12 @@ when:
         - manual
 
 # Debian sid: clang-19 (amd64).yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: docker
     platform: linux/amd64
@@ -146,6 +164,12 @@ when:
         - manual
 
 # Debian sid: llvm-23 (amd64).yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: docker
     platform: linux/amd64
@@ -195,6 +219,12 @@ when:
         - manual
 
 # Debian sid (ARM64).yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: docker
     platform: linux/arm64
@@ -244,6 +274,12 @@ when:
         - manual
 
 # Debian stable (i386).yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: docker
     platform: linux/amd64
@@ -293,6 +329,12 @@ when:
         - manual
 
 # Debian stable (armhf).yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: docker
     platform: linux/arm64
@@ -342,6 +384,12 @@ when:
         - manual
 
 # Debian bookworm (amd64).yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: docker
     platform: linux/amd64
@@ -391,6 +439,12 @@ when:
         - manual
 
 # Debian bookworm (armhf).yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: docker
     platform: linux/arm64
@@ -440,6 +494,12 @@ when:
         - manual
 
 # Ubuntu jammy (amd64).yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: docker
     platform: linux/amd64
@@ -489,6 +549,12 @@ when:
         - manual
 
 # Ubuntu noble (amd64).yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: docker
     platform: linux/amd64
@@ -538,6 +604,12 @@ when:
         - manual
 
 # MacOS (amd64) Release.yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: local
     platform: darwin/amd64
@@ -579,6 +651,12 @@ when:
         - manual
 
 # MacOS (amd64) Debug.yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: local
     platform: darwin/amd64
@@ -620,6 +698,12 @@ when:
         - manual
 
 # MacOS (arm64) Release.yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: local
     platform: darwin/arm64
@@ -661,6 +745,12 @@ when:
         - manual
 
 # MacOS (arm64) Debug.yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: local
     platform: darwin/arm64

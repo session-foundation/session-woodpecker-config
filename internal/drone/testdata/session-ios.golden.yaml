@@ -1,4 +1,10 @@
 # Unit Tests.yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: local
     platform: darwin/arm64
@@ -117,6 +123,12 @@ when:
         - manual
 
 # Check Build Artifact Existence.yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: local
     platform: darwin/arm64
@@ -137,6 +149,12 @@ when:
         - manual
 
 # Simulator Build.yaml
+clone:
+    - image: docker.io/woodpeckerci/plugin-git:2
+      name: clone
+      settings:
+        partial: false
+        recursive: false
 labels:
     backend: local
     platform: darwin/arm64

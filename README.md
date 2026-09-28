@@ -81,6 +81,10 @@ with `image`, `commands`, `environment` (including `from_secret`), `pull`, `fail
 `when`, `settings`, `detach` and `privileged`. Anything else is rejected with an error rather than
 translated into something that might behave differently.
 
+Translated workflows clone the repository the way Drone did, fully and without submodules, rather
+than with Woodpecker's default shallow partial clone that also checks out submodules. The configs
+handle submodules themselves, and their `git fetch --tags` breaks in a partial clone.
+
 Drone left a variable empty when its `from_secret` secret was missing or not available to the
 build, and scripts rely on that (for instance by skipping an upload when `SSH_KEY` is empty), but
 Woodpecker fails the whole pipeline instead. So the translation only keeps `from_secret` for

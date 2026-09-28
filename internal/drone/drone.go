@@ -113,7 +113,7 @@ func translatePipeline(p map[string]any, secrets bool) (map[string]any, error) {
 	// Scripts from the Drone era read these, and Woodpecker has no equivalent step variables.
 	env = mergeEnv(map[string]any{"DRONE_STAGE_OS": os, "DRONE_STAGE_ARCH": arch}, env)
 
-	cfg := map[string]any{"labels": labels}
+	cfg := map[string]any{"labels": labels, "clone": cloneSteps()}
 
 	when, err := translateConstraint(p["trigger"], true)
 	if err != nil {
@@ -156,7 +156,26 @@ func translatePipeline(p map[string]any, secrets bool) (map[string]any, error) {
 	return cfg, nil
 }
 
-var stepFields = []string{"name", "image", "commands", "environment", "pull", "failure", "depends_on", "when", "settings", "detach", "privileged"}
+// clonePlugin is Woodpecker's own clone plugin.  An untagged or major-version reference is on
+// Woodpecker's default list of trusted clone images, so it still gets credentials for private
+// repositories.
+const clonePlugin = "docker.io/woodpeckerci/plugin-git:2"
+
+// cloneSteps replaces Woodpecker's default clone with the full clone, without submodules, that
+// Drone did and that Drone configs are written for.  By default Woodpecker makes a treeless
+// partial clone and checks out all submodules: the configs then do their own submodule handling,
+// which may be deliberately selective, and their `git fetch --tags` fails in a partial clone
+// because git tries to fetch the submodule commits referenced by other branches from the
+// superproject's remote.
+func cloneSteps() []any {
+	return []any{map[string]any{
+		"name":     "clone",
+		"image":    clonePlugin,
+		"settings": map[string]any{"partial": false, "recursive": false},
+	}}
+}
+
+var stepFields =[]string{"name", "image", "commands", "environment", "pull", "failure", "depends_on", "when", "settings", "detach", "privileged"}
 
 func translateStep(s map[string]any, backend string, pipelineEnv map[string]any, secrets bool) (map[string]any, error) {
 	if err := checkFields(s, stepFields); err != nil {
