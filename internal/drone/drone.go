@@ -175,7 +175,7 @@ func cloneSteps() []any {
 	}}
 }
 
-var stepFields =[]string{"name", "image", "commands", "environment", "pull", "failure", "depends_on", "when", "settings", "detach", "privileged"}
+var stepFields = []string{"name", "image", "commands", "environment", "pull", "failure", "depends_on", "when", "settings", "detach", "privileged"}
 
 func translateStep(s map[string]any, backend string, pipelineEnv map[string]any, secrets bool) (map[string]any, error) {
 	if err := checkFields(s, stepFields); err != nil {
