@@ -202,18 +202,43 @@ func TestOrder(t *testing.T) {
 		fmt.Fprintf(&src, "{name: '%s', steps: []},", name)
 	}
 	src.WriteString("]")
-	status, body := setup(t).post(t, configFile{".woodpecker/build.jsonnet", src.String()})
+	f := setup(t)
+	check := func(what string, configs []configFile) {
+		t.Helper()
+		files := names(configs)
+		slices.Sort(files)
+		got := make([]string, len(files))
+		for i, f := range files {
+			got[i] = workflow.NameFromFile(f)
+		}
+		if !slices.Equal(got, want) {
+			t.Errorf("%s: got workflows %q in sorted order, want %q (files %q)", what, got, want, files)
+		}
+	}
+
+	status, body := f.post(t, configFile{".woodpecker/build.jsonnet", src.String()})
 	if status != http.StatusOK {
 		t.Fatalf("got status %d: %s", status, body)
 	}
-	files := names(decodeConfigs(t, body))
-	slices.Sort(files)
-	got := make([]string, len(files))
-	for i, f := range files {
-		got[i] = workflow.NameFromFile(f)
+	configs := decodeConfigs(t, body)
+	check("first run", configs)
+
+	// A restart sends the stored workflows back under their bare names, in no particular order.
+	stored := make([]configFile, len(configs))
+	for i, c := range configs {
+		stored[i] = configFile{workflow.NameFromFile(c.Name), c.Data}
 	}
-	if !slices.Equal(got, want) {
-		t.Errorf("got workflows %q in sorted order, want %q (files %q)", got, want, files)
+	slices.Reverse(stored)
+	status, body = f.post(t, stored...)
+	if status != http.StatusOK {
+		t.Fatalf("restart: got status %d: %s", status, body)
+	}
+	restarted := decodeConfigs(t, body)
+	check("restart", restarted)
+	for i, c := range restarted {
+		if c.Data != stored[i].Data {
+			t.Errorf("restart: workflow %q was modified", c.Name)
+		}
 	}
 }
 
