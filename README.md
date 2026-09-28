@@ -68,6 +68,9 @@ Some things to be aware of:
   Debug`), because Woodpecker names workflows after the base name of their config file and would
   otherwise truncate the name at the last `/`.
 - Workflow names must be unique across all of a repository's config files.
+- Workflows appear in the order the config lists them. Woodpecker sorts workflows by config file
+  name, so the generated files are named `<config file>/<index>/<workflow name>.yaml`, which is
+  what the pipeline's Config tab shows.
 - Woodpecker substitutes `${VAR}` references in the generated config before running it, so shell
   variables must be written `$${VAR}` (or as bare `$VAR`, which Woodpecker leaves alone).
 - Evaluation is limited to 5 seconds and 1 GiB of memory by default; errors, including exceeding

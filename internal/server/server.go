@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"path"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/yaronf/httpsign"
@@ -162,12 +163,17 @@ func (s *Server) process(ctx context.Context, req *request) ([]configFile, error
 			continue
 		}
 		converted = true
-		for _, w := range wfs {
+		// Woodpecker orders workflows by sorting their file names, but names each workflow after
+		// only the file name's base, so a directory prefix of the source file and a zero-padded
+		// index keeps them in the order the config listed them without showing up in the names.
+		width := len(strconv.Itoa(len(wfs) - 1))
+		for i, w := range wfs {
 			y, err := w.YAML()
 			if err != nil {
 				return nil, configError(f.Name, err)
 			}
-			if err := add(w.Name, w.FileName(), y, f.Name); err != nil {
+			fileName := fmt.Sprintf("%s/%0*d/%s", f.Name, width, i, w.FileName())
+			if err := add(w.Name, fileName, y, f.Name); err != nil {
 				return nil, err
 			}
 		}

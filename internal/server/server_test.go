@@ -6,10 +6,12 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -17,6 +19,7 @@ import (
 
 	"github.com/session-foundation/session-woodpecker-config/internal/eval"
 	"github.com/session-foundation/session-woodpecker-config/internal/sandbox"
+	"github.com/session-foundation/session-woodpecker-config/internal/workflow"
 )
 
 // directEval evaluates in-process; the sandbox has its own tests.
@@ -175,7 +178,7 @@ func TestMixedDirectory(t *testing.T) {
 		t.Fatalf("got status %d: %s", status, body)
 	}
 	configs := decodeConfigs(t, body)
-	want := []string{"Debian sid: push.yaml", ".woodpecker/docs.yaml", "lint.yaml"}
+	want := []string{".woodpecker/build.jsonnet/0/Debian sid: push.yaml", ".woodpecker/docs.yaml", ".woodpecker/lint.star/0/lint.yaml"}
 	if got := names(configs); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("got configs %q, want %q", got, want)
 	}
@@ -187,13 +190,40 @@ func TestMixedDirectory(t *testing.T) {
 	}
 }
 
+// TestOrder checks that sorting the file names, as Woodpecker does, keeps the order the config
+// listed its workflows in, and that the names Woodpecker derives from the files are unchanged.
+func TestOrder(t *testing.T) {
+	var src strings.Builder
+	src.WriteString("[")
+	var want []string
+	for i := range 12 {
+		name := fmt.Sprintf("%c", 'z'-i)
+		want = append(want, name)
+		fmt.Fprintf(&src, "{name: '%s', steps: []},", name)
+	}
+	src.WriteString("]")
+	status, body := setup(t).post(t, configFile{".woodpecker/build.jsonnet", src.String()})
+	if status != http.StatusOK {
+		t.Fatalf("got status %d: %s", status, body)
+	}
+	files := names(decodeConfigs(t, body))
+	slices.Sort(files)
+	got := make([]string, len(files))
+	for i, f := range files {
+		got[i] = workflow.NameFromFile(f)
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("got workflows %q in sorted order, want %q (files %q)", got, want, files)
+	}
+}
+
 func TestDrone(t *testing.T) {
 	status, body := setup(t).post(t, configFile{".drone.jsonnet", `[{kind: 'pipeline', name: 'Debian sid (amd64)', steps: [{name: 'build', image: 'debian', commands: ['echo ${DRONE_COMMIT}']}]}]`})
 	if status != http.StatusOK {
 		t.Fatalf("got status %d: %s", status, body)
 	}
 	configs := decodeConfigs(t, body)
-	if got := names(configs); len(got) != 2 || got[0] != "DEPRECATED.yaml" || got[1] != "Debian sid (amd64).yaml" {
+	if got := names(configs); len(got) != 2 || got[0] != ".drone.jsonnet/0/DEPRECATED.yaml" || got[1] != ".drone.jsonnet/1/Debian sid (amd64).yaml" {
 		t.Fatalf("got configs %q", got)
 	}
 	if !strings.Contains(configs[0].Data, "https://example.com/help") {
