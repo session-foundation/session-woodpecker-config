@@ -43,7 +43,7 @@ func TestEndToEnd(t *testing.T) {
 	}
 
 	addr := freeAddr(t)
-	cmd := exec.Command(bin, "-listen", addr, "-public-key", keyFile)
+	cmd := exec.Command(bin, "-listen", addr, "-public-key", keyFile, "-secret-repos", filepath.Join(dir, "secret-repos"))
 	var logs bytes.Buffer
 	cmd.Stderr = &logs
 	if err := cmd.Start(); err != nil {

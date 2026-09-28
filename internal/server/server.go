@@ -36,26 +36,27 @@ type Evaluator interface {
 	Eval(ctx context.Context, job sandbox.Job) (any, error)
 }
 
+// RepoMatcher decides which repositories (owner/name) something applies to; *repolist.File is the
+// real implementation.
+type RepoMatcher interface {
+	Match(repo string) bool
+}
+
 // Server is the extension's HTTP handler.
 type Server struct {
 	verifier    *httpsign.Verifier
 	eval        Evaluator
 	helpURL     string
-	secretRepos []string
+	secretRepos RepoMatcher
 	log         *slog.Logger
 	mux         *http.ServeMux
 }
 
 // New creates a Server that accepts requests signed by the Woodpecker server whose public key is
 // pub.  helpURL is where the deprecation notice for .drone.jsonnet configs points people.
-// secretRepos are path.Match patterns of the repositories (owner/name) whose .drone.jsonnet
-// pipelines are given secrets, other than for pull requests.
-func New(pub ed25519.PublicKey, eval Evaluator, helpURL string, secretRepos []string, log *slog.Logger) (*Server, error) {
-	for _, p := range secretRepos {
-		if _, err := path.Match(p, ""); err != nil {
-			return nil, fmt.Errorf("secret repository pattern %q: %w", p, err)
-		}
-	}
+// secretRepos matches the repositories whose .drone.jsonnet pipelines are given secrets, other
+// than for pull requests.
+func New(pub ed25519.PublicKey, eval Evaluator, helpURL string, secretRepos RepoMatcher, log *slog.Logger) (*Server, error) {
 	verifier, err := httpsign.NewEd25519Verifier(pub, httpsign.NewVerifyConfig(),
 		httpsign.Headers("@request-target", "content-digest"))
 	if err != nil {
@@ -194,10 +195,7 @@ func (s *Server) secretsAllowed(req *request) bool {
 		return false
 	}
 	repo, _ := req.Repo["full_name"].(string)
-	return slices.ContainsFunc(s.secretRepos, func(p string) bool {
-		ok, _ := path.Match(p, repo)
-		return ok
-	})
+	return s.secretRepos.Match(repo)
 }
 
 // convert evaluates f into workflows, or returns nil workflows if f is not a file it converts.

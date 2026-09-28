@@ -36,6 +36,12 @@ func (directEval) Eval(_ context.Context, job sandbox.Job) (any, error) {
 	return res, nil
 }
 
+type ownerMatcher string
+
+func (o ownerMatcher) Match(repo string) bool {
+	return strings.HasPrefix(repo, string(o)+"/")
+}
+
 type fixture struct {
 	url    string
 	client *httpsign.Client
@@ -47,7 +53,7 @@ func setup(t *testing.T) *fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := New(pub, directEval{}, "https://example.com/help", []string{"session-foundation/*"}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	s, err := New(pub, directEval{}, "https://example.com/help", ownerMatcher("session-foundation"), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}

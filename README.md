@@ -85,9 +85,9 @@ Drone left a variable empty when its `from_secret` secret was missing or not ava
 build, and scripts rely on that (for instance by skipping an upload when `SSH_KEY` is empty), but
 Woodpecker fails the whole pipeline instead. So the translation only keeps `from_secret` for
 builds that should have the secrets: push, tag, deployment, cron and manual builds of repositories
-matching `-secret-repos` (default `session-foundation/*`). For pull requests and all other
-repositories the variables are left unset. Create the secrets as organization secrets allowed for
-those events; a secret that is missing where it is expected still fails the pipeline.
+listed in the secret repository file (see below). For pull requests and all other repositories the
+variables are left unset. Create the secrets as organization (or user) secrets allowed for those
+events; a secret that is missing where it is expected still fails the pipeline.
 
 In native configs, the Woodpecker way is to put the secret only on a step that runs where the
 secret exists, since Woodpecker only resolves secrets for steps that will run:
@@ -119,6 +119,7 @@ the key on first start), then install and start the systemd unit from `contrib/`
 ```
 mkdir -p /etc/session-woodpecker-config
 curl -o /etc/session-woodpecker-config/woodpecker-key.pem https://ci.example.org/api/signature/public-key
+install -m 644 contrib/secret-repos /etc/session-woodpecker-config/
 install -m 644 contrib/session-woodpecker-config.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now session-woodpecker-config
@@ -138,6 +139,12 @@ location = /config-extension {
     proxy_pass http://[::1]:7776;
 }
 ```
+
+`/etc/session-woodpecker-config/secret-repos` lists the repositories whose `.drone.jsonnet`
+pipelines are given secrets, as `owner/name` patterns such as `session-foundation/*`, one or more
+per line, with `#` comments. The service notices when it changes, so edits apply from the next
+pipeline without a restart. A missing file means no repository gets secrets, and a broken edit is
+logged and the previous list kept.
 
 See `-help` for resource limits and other options.
 
