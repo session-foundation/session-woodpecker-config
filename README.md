@@ -109,7 +109,7 @@ Build a static binary (the binary re-executes itself to evaluate configs, so it 
 needed) and install it:
 
 ```
-CGO_ENABLED=0 go build -trimpath ./cmd/session-woodpecker-config
+make
 install session-woodpecker-config /usr/local/bin/
 ```
 
