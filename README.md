@@ -81,6 +81,25 @@ with `image`, `commands`, `environment` (including `from_secret`), `pull`, `fail
 `when`, `settings`, `detach` and `privileged`. Anything else is rejected with an error rather than
 translated into something that might behave differently.
 
+Drone left a variable empty when its `from_secret` secret was missing or not available to the
+build, and scripts rely on that (for instance by skipping an upload when `SSH_KEY` is empty), but
+Woodpecker fails the whole pipeline instead. So the translation only keeps `from_secret` for
+builds that should have the secrets: push, tag, deployment, cron and manual builds of repositories
+matching `-secret-repos` (default `session-foundation/*`). For pull requests and all other
+repositories the variables are left unset. Create the secrets as organization secrets allowed for
+those events; a secret that is missing where it is expected still fails the pipeline.
+
+In native configs, the Woodpecker way is to put the secret only on a step that runs where the
+secret exists, since Woodpecker only resolves secrets for steps that will run:
+
+```yaml
+- name: upload
+  image: debian:stable-slim
+  environment: { SSH_KEY: { from_secret: SSH_KEY } }
+  commands: [ ./utils/ci/upload.sh ]
+  when: [{ event: push, repo: 'session-foundation/*' }]
+```
+
 `${DRONE_*}` references are rewritten to the equivalent Woodpecker variables. See
 `internal/drone/testdata/*.golden.yaml` for what real configs translate to.
 

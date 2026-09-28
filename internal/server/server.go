@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"net/http"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/yaronf/httpsign"
@@ -37,22 +38,30 @@ type Evaluator interface {
 
 // Server is the extension's HTTP handler.
 type Server struct {
-	verifier *httpsign.Verifier
-	eval     Evaluator
-	helpURL  string
-	log      *slog.Logger
-	mux      *http.ServeMux
+	verifier    *httpsign.Verifier
+	eval        Evaluator
+	helpURL     string
+	secretRepos []string
+	log         *slog.Logger
+	mux         *http.ServeMux
 }
 
 // New creates a Server that accepts requests signed by the Woodpecker server whose public key is
 // pub.  helpURL is where the deprecation notice for .drone.jsonnet configs points people.
-func New(pub ed25519.PublicKey, eval Evaluator, helpURL string, log *slog.Logger) (*Server, error) {
+// secretRepos are path.Match patterns of the repositories (owner/name) whose .drone.jsonnet
+// pipelines are given secrets, other than for pull requests.
+func New(pub ed25519.PublicKey, eval Evaluator, helpURL string, secretRepos []string, log *slog.Logger) (*Server, error) {
+	for _, p := range secretRepos {
+		if _, err := path.Match(p, ""); err != nil {
+			return nil, fmt.Errorf("secret repository pattern %q: %w", p, err)
+		}
+	}
 	verifier, err := httpsign.NewEd25519Verifier(pub, httpsign.NewVerifyConfig(),
 		httpsign.Headers("@request-target", "content-digest"))
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{verifier: verifier, eval: eval, helpURL: helpURL, log: log, mux: http.NewServeMux()}
+	s := &Server{verifier: verifier, eval: eval, helpURL: helpURL, secretRepos: secretRepos, log: log, mux: http.NewServeMux()}
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintln(w, "ok")
 	})
@@ -139,8 +148,9 @@ func (s *Server) process(ctx context.Context, req *request) ([]configFile, error
 		return nil
 	}
 
+	secrets := s.secretsAllowed(req)
 	for _, f := range req.Configuration {
-		wfs, err := s.convert(ctx, f, buildCtx)
+		wfs, err := s.convert(ctx, f, buildCtx, secrets)
 		if err != nil {
 			return nil, err
 		}
@@ -171,8 +181,27 @@ func (s *Server) process(ctx context.Context, req *request) ([]configFile, error
 	return out, nil
 }
 
+// secretEvents are the events whose pipelines may be given secrets.  Pull requests are excluded,
+// as they were by default in Drone, since their code has not been reviewed.
+var secretEvents = []string{"push", "tag", "deployment", "cron", "manual"}
+
+// secretsAllowed reports whether a translated .drone.jsonnet pipeline for req may be given
+// secrets.  Woodpecker fails a pipeline outright when a secret it references is missing, so this
+// has to predict where the secrets exist: a trusted event in one of the repositories they have
+// been set up for.
+func (s *Server) secretsAllowed(req *request) bool {
+	if event, _ := req.Pipeline["event"].(string); !slices.Contains(secretEvents, event) {
+		return false
+	}
+	repo, _ := req.Repo["full_name"].(string)
+	return slices.ContainsFunc(s.secretRepos, func(p string) bool {
+		ok, _ := path.Match(p, repo)
+		return ok
+	})
+}
+
 // convert evaluates f into workflows, or returns nil workflows if f is not a file it converts.
-func (s *Server) convert(ctx context.Context, f configFile, buildCtx any) ([]workflow.Workflow, error) {
+func (s *Server) convert(ctx context.Context, f configFile, buildCtx any, secrets bool) ([]workflow.Workflow, error) {
 	base := path.Base(f.Name)
 	ext := path.Ext(base)
 
@@ -182,7 +211,7 @@ func (s *Server) convert(ctx context.Context, f configFile, buildCtx any) ([]wor
 		if err != nil {
 			return nil, evalError(f.Name, err)
 		}
-		wfs, err := drone.Translate(result)
+		wfs, err := drone.Translate(result, secrets)
 		if err != nil {
 			return nil, configError(f.Name, err)
 		}

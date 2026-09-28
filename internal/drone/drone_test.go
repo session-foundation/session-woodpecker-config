@@ -83,13 +83,62 @@ func TestTriggers(t *testing.T) {
 func TestNullCommands(t *testing.T) {
 	wfs, err := Translate(map[string]any{"kind": "pipeline", "name": "p", "steps": []any{
 		map[string]any{"name": "s", "image": "debian", "commands": []any{"a", nil, "b"}},
-	}})
+	}}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	cmds := wfs[0].Config["steps"].([]any)[0].(map[string]any)["commands"]
 	if !reflect.DeepEqual(cmds, []any{"a", "b"}) {
 		t.Errorf("got commands %#v", cmds)
+	}
+}
+
+func TestSecrets(t *testing.T) {
+	secret := map[string]any{"from_secret": "SSH_KEY"}
+	pipeline := map[string]any{
+		"kind": "pipeline", "name": "p",
+		"environment": map[string]any{"PIPELINE_KEY": secret, "A": "1"},
+		"steps": []any{map[string]any{
+			"name": "upload", "image": "plugins/x",
+			"environment": map[string]any{"SSH_KEY": secret, "B": "2"},
+			"settings":    map[string]any{"key": secret, "target": "t"},
+		}},
+		"services": []any{map[string]any{"name": "db", "image": "postgres", "environment": map[string]any{"PW": secret}}},
+	}
+
+	for _, tc := range []struct {
+		secrets                    bool
+		stepEnv, settings, service map[string]any
+	}{
+		{true,
+			map[string]any{"PIPELINE_KEY": secret, "A": "1", "SSH_KEY": secret, "B": "2"},
+			map[string]any{"key": secret, "target": "t"},
+			map[string]any{"PIPELINE_KEY": secret, "A": "1", "PW": secret}},
+		{false,
+			map[string]any{"A": "1", "B": "2"},
+			map[string]any{"target": "t"},
+			map[string]any{"A": "1"}},
+	} {
+		wfs, err := Translate(pipeline, tc.secrets)
+		if err != nil {
+			t.Fatal(err)
+		}
+		step := wfs[0].Config["steps"].([]any)[0].(map[string]any)
+		env := step["environment"].(map[string]any)
+		delete(env, "DRONE_STAGE_OS")
+		delete(env, "DRONE_STAGE_ARCH")
+		service := wfs[0].Config["services"].([]any)[0].(map[string]any)["environment"].(map[string]any)
+		delete(service, "DRONE_STAGE_OS")
+		delete(service, "DRONE_STAGE_ARCH")
+		if !reflect.DeepEqual(env, tc.stepEnv) {
+			t.Errorf("secrets=%v: step environment %v, want %v", tc.secrets, env, tc.stepEnv)
+		}
+		if !reflect.DeepEqual(step["settings"], tc.settings) {
+			t.Errorf("secrets=%v: settings %v, want %v", tc.secrets, step["settings"], tc.settings)
+		}
+		if !reflect.DeepEqual(service, tc.service) {
+			t.Errorf("secrets=%v: service environment %v, want %v", tc.secrets, service, tc.service)
+		}
 	}
 }
 
@@ -117,7 +166,7 @@ func TestTranslateErrors(t *testing.T) {
 		{pipeline(map[string]any{"steps": []any{map[string]any{"name": "s", "image": "x", "pull": "sometimes"}}}), "unsupported pull policy"},
 		{pipeline(map[string]any{"steps": []any{}}), "no steps"},
 	} {
-		_, err := Translate(tc.result)
+		_, err := Translate(tc.result, true)
 		if err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%#v: expected error containing %q, got %v", tc.result, tc.want, err)
 		}
@@ -137,7 +186,7 @@ func TestGolden(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			wfs, err := Translate(result)
+			wfs, err := Translate(result, true)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -36,6 +37,7 @@ func run() error {
 	listen := flag.String("listen", "127.0.0.1:8124", "address to listen on")
 	keyFile := flag.String("public-key", "", "PEM file containing the Woodpecker server's public key, as served at /api/signature/public-key (required)")
 	helpURL := flag.String("help-url", "https://github.com/session-foundation/session-woodpecker-config", "URL the .drone.jsonnet deprecation notice points to")
+	secretRepos := flag.String("secret-repos", "session-foundation/*", "comma-separated patterns of the repositories (owner/name) whose .drone.jsonnet pipelines are given secrets, other than for pull requests; elsewhere from_secret is dropped")
 	timeout := flag.Duration("eval-timeout", 5*time.Second, "maximum time to evaluate one config file; keep well below Woodpecker's 10s extension timeout")
 	memory := flag.Uint64("eval-memory", 1024, "maximum memory for evaluating one config file, in MiB")
 	concurrency := flag.Int("eval-concurrency", runtime.NumCPU(), "maximum number of config files evaluated at once")
@@ -60,7 +62,13 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	handler, err := server.New(pub, runner, *helpURL, log)
+	var repos []string
+	for p := range strings.SplitSeq(*secretRepos, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			repos = append(repos, p)
+		}
+	}
+	handler, err := server.New(pub, runner, *helpURL, repos, log)
 	if err != nil {
 		return err
 	}

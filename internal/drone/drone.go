@@ -19,7 +19,12 @@ const ConfigFile = ".drone.jsonnet"
 
 // Translate converts the evaluated output of a .drone.jsonnet (a pipeline object or a list of
 // them) into Woodpecker workflows.
-func Translate(result any) ([]workflow.Workflow, error) {
+//
+// secrets says whether the pipeline may be given secrets.  If not, every from_secret is dropped,
+// leaving the variable unset.  That is what Drone did with a secret that was missing or not
+// available to the build, and Session configs rely on it (upload scripts skip when SSH_KEY is
+// empty); Woodpecker instead fails the whole pipeline.
+func Translate(result any, secrets bool) ([]workflow.Workflow, error) {
 	var pipelines []any
 	switch v := result.(type) {
 	case []any:
@@ -40,7 +45,7 @@ func Translate(result any) ([]workflow.Workflow, error) {
 		if name == "" {
 			return nil, fmt.Errorf("pipeline %d: missing \"name\"", i)
 		}
-		cfg, err := translatePipeline(obj)
+		cfg, err := translatePipeline(obj, secrets)
 		if err != nil {
 			return nil, fmt.Errorf("pipeline %q: %w", name, err)
 		}
@@ -51,7 +56,7 @@ func Translate(result any) ([]workflow.Workflow, error) {
 
 var pipelineFields = []string{"kind", "type", "name", "platform", "node", "environment", "services", "steps", "trigger", "depends_on"}
 
-func translatePipeline(p map[string]any) (map[string]any, error) {
+func translatePipeline(p map[string]any, secrets bool) (map[string]any, error) {
 	if err := checkFields(p, pipelineFields); err != nil {
 		return nil, err
 	}
@@ -117,7 +122,7 @@ func translatePipeline(p map[string]any) (map[string]any, error) {
 	cfg["when"] = []any{when}
 
 	steps, err := translateList(p, "steps", func(s map[string]any) (map[string]any, error) {
-		return translateStep(s, backend, env)
+		return translateStep(s, backend, env, secrets)
 	})
 	if err != nil {
 		return nil, err
@@ -128,7 +133,7 @@ func translatePipeline(p map[string]any) (map[string]any, error) {
 	cfg["steps"] = steps
 
 	services, err := translateList(p, "services", func(s map[string]any) (map[string]any, error) {
-		return translateService(s, env)
+		return translateService(s, env, secrets)
 	})
 	if err != nil {
 		return nil, err
@@ -153,7 +158,7 @@ func translatePipeline(p map[string]any) (map[string]any, error) {
 
 var stepFields = []string{"name", "image", "commands", "environment", "pull", "failure", "depends_on", "when", "settings", "detach", "privileged"}
 
-func translateStep(s map[string]any, backend string, pipelineEnv map[string]any) (map[string]any, error) {
+func translateStep(s map[string]any, backend string, pipelineEnv map[string]any, secrets bool) (map[string]any, error) {
 	if err := checkFields(s, stepFields); err != nil {
 		return nil, err
 	}
@@ -176,7 +181,7 @@ func translateStep(s map[string]any, backend string, pipelineEnv map[string]any)
 		out["image"] = img
 	}
 
-	if err := translateCommon(s, out, pipelineEnv); err != nil {
+	if err := translateCommon(s, out, pipelineEnv, secrets); err != nil {
 		return nil, err
 	}
 
@@ -205,6 +210,9 @@ func translateStep(s map[string]any, backend string, pipelineEnv map[string]any)
 		if err != nil {
 			return nil, fmt.Errorf("settings: %w", err)
 		}
+		if m, ok := v.(map[string]any); ok && !secrets {
+			maps.DeleteFunc(m, func(_ string, v any) bool { return isSecretRef(v) })
+		}
 		out["settings"] = v
 	}
 	for _, k := range []string{"detach", "privileged"} {
@@ -221,7 +229,7 @@ func translateStep(s map[string]any, backend string, pipelineEnv map[string]any)
 
 var serviceFields = []string{"name", "image", "commands", "environment", "pull"}
 
-func translateService(s map[string]any, pipelineEnv map[string]any) (map[string]any, error) {
+func translateService(s map[string]any, pipelineEnv map[string]any, secrets bool) (map[string]any, error) {
 	if err := checkFields(s, serviceFields); err != nil {
 		return nil, err
 	}
@@ -234,14 +242,14 @@ func translateService(s map[string]any, pipelineEnv map[string]any) (map[string]
 		return nil, fmt.Errorf("image: %w", err)
 	}
 	out := map[string]any{"name": s["name"], "image": image}
-	if err := translateCommon(s, out, pipelineEnv); err != nil {
+	if err := translateCommon(s, out, pipelineEnv, secrets); err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
 // translateCommon handles the fields steps and services share.
-func translateCommon(s, out map[string]any, pipelineEnv map[string]any) error {
+func translateCommon(s, out map[string]any, pipelineEnv map[string]any, secrets bool) error {
 	if cmds, ok := s["commands"]; ok {
 		// Drone ran a null command as an empty line, and configs rely on that: jsonnet's
 		// `[if cond then cmd]` produces [null] when cond is false.
@@ -273,8 +281,11 @@ func translateCommon(s, out map[string]any, pipelineEnv map[string]any) error {
 				return fmt.Errorf("environment: %s: %w", k, err)
 			}
 		case map[string]any:
-			if len(v) != 1 || v["from_secret"] == nil {
+			if !isSecretRef(v) {
 				return fmt.Errorf("environment: %s: only from_secret is supported", k)
+			}
+			if !secrets {
+				delete(env, k)
 			}
 		}
 	}
@@ -290,6 +301,11 @@ func translateCommon(s, out map[string]any, pipelineEnv map[string]any) error {
 		return fmt.Errorf("unsupported pull policy %v", pull)
 	}
 	return nil
+}
+
+func isSecretRef(v any) bool {
+	m, ok := v.(map[string]any)
+	return ok && len(m) == 1 && m["from_secret"] != nil
 }
 
 // allEvents are the Woodpecker events equivalent to Drone's events.  Drone never ran pipelines for

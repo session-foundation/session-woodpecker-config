@@ -47,7 +47,7 @@ func setup(t *testing.T) *fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := New(pub, directEval{}, "https://example.com/help", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	s, err := New(pub, directEval{}, "https://example.com/help", []string{"session-foundation/*"}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,9 +65,14 @@ func setup(t *testing.T) *fixture {
 
 func (f *fixture) post(t *testing.T, files ...configFile) (int, string) {
 	t.Helper()
+	return f.postFor(t, "session-foundation/liboxenmq", "push", files...)
+}
+
+func (f *fixture) postFor(t *testing.T, repo, event string, files ...configFile) (int, string) {
+	t.Helper()
 	body, err := json.Marshal(map[string]any{
-		"repo":          map[string]any{"full_name": "session-foundation/liboxenmq"},
-		"pipeline":      map[string]any{"number": 7, "event": "push"},
+		"repo":          map[string]any{"full_name": repo},
+		"pipeline":      map[string]any{"number": 7, "event": event},
 		"configuration": files,
 	})
 	if err != nil {
@@ -190,6 +195,30 @@ func TestDrone(t *testing.T) {
 	}
 	if !strings.Contains(configs[1].Data, "echo ${CI_COMMIT_SHA}") {
 		t.Errorf("Drone variable not rewritten: %s", configs[1].Data)
+	}
+}
+
+func TestDroneSecrets(t *testing.T) {
+	f := setup(t)
+	src := configFile{".drone.jsonnet", `{kind: 'pipeline', name: 'p', steps: [{name: 's', image: 'debian', environment: {SSH_KEY: {from_secret: 'SSH_KEY'}}}]}`}
+	for _, tc := range []struct {
+		repo, event string
+		secrets     bool
+	}{
+		{"session-foundation/liboxenmq", "push", true},
+		{"session-foundation/liboxenmq", "tag", true},
+		{"session-foundation/liboxenmq", "pull_request", false},
+		{"session-foundation/liboxenmq", "pull_request_closed", false},
+		{"jagerman/loki-mq", "push", false},
+		{"session-foundation-fork/liboxenmq", "push", false},
+	} {
+		status, body := f.postFor(t, tc.repo, tc.event, src)
+		if status != http.StatusOK {
+			t.Fatalf("%s %s: got status %d: %s", tc.repo, tc.event, status, body)
+		}
+		if got := strings.Contains(decodeConfigs(t, body)[1].Data, "from_secret"); got != tc.secrets {
+			t.Errorf("%s %s: got secrets %v, want %v", tc.repo, tc.event, got, tc.secrets)
+		}
 	}
 }
 
