@@ -36,7 +36,7 @@ func main() {
 func run() error {
 	listen := flag.String("listen", "127.0.0.1:8124", "address to listen on")
 	keyFile := flag.String("public-key", "", "PEM file containing the Woodpecker server's public key, as served at /api/signature/public-key (required)")
-	helpURL := flag.String("help-url", "https://github.com/session-foundation/session-woodpecker-config", "URL the .drone.jsonnet deprecation notice points to")
+	helpURL := flag.String("help-url", "https://github.com/session-foundation/session-woodpecker-config#migrating-from-dronejsonnet", "URL the .drone.jsonnet deprecation notice points to")
 	secretRepos := flag.String("secret-repos", "/etc/session-woodpecker-config/secret-repos", "file listing patterns of the repositories (owner/name) whose .drone.jsonnet pipelines are given secrets, other than for pull requests (elsewhere from_secret is dropped); changes are picked up without a restart")
 	timeout := flag.Duration("eval-timeout", 5*time.Second, "maximum time to evaluate one config file; keep well below Woodpecker's 10s extension timeout")
 	memory := flag.Uint64("eval-memory", 1024, "maximum memory for evaluating one config file, in MiB")

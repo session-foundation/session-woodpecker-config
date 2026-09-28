@@ -119,6 +119,79 @@ each step starts by exporting the `DRONE_*` environment variables Drone set (fro
 `CI_*` ones), since the scripts steps run read them directly and Woodpecker only sets them for
 plugins. See `internal/drone/testdata/*.golden.yaml` for what real configs translate to.
 
+## Migrating from `.drone.jsonnet`
+
+Replace `.drone.jsonnet` with `.woodpecker/build.jsonnet` (or a Starlark `.woodpecker/build.star`),
+in the format described under [Writing configs](#writing-configs). The translation above is a
+working model: the golden files in `internal/drone/testdata/` show what each Drone construct
+becomes. The things that need changing:
+
+**The pipeline itself**
+
+- `kind` and `type` go away. A `docker` pipeline becomes `labels: { backend: 'docker' }`. An
+  `exec` pipeline becomes `labels: { backend: 'local' }`, and each step gets `image: 'sh'`, which
+  the local backend uses as the shell.
+- `platform: { os, arch }` becomes `labels: { platform: 'linux/amd64' }` (or `darwin/arm64`, ...).
+  Always set both `platform` and `backend`: a workflow without them can be scheduled on any agent,
+  including the macOS ones, which run steps directly on the host.
+- `node` entries become further labels.
+- `trigger` becomes `when`, a list of conditions. Drone's `event: { exclude: [...] }` has to be
+  written as the explicit list of events wanted; Drone's `promote`/`rollback` events are
+  `deployment` and `custom` is `manual`.
+- Put Drone's pipeline-level `environment` on each step, as the translation does.
+
+**Cloning**
+
+Drone did a full clone without submodules. Woodpecker's default is a shallow, treeless partial
+clone that also checks out all submodules (depth 1). So the usual Drone step of
+`git submodule update --init --recursive --depth=1` can simply be dropped. If the build needs tags
+(for `git describe`, say), set:
+
+```jsonnet
+clone: [{ name: 'clone', image: 'woodpeckerci/plugin-git:2', settings: { tags: true } }],
+```
+
+Fetching tags also turns off the partial clone. Don't keep a `git fetch --tags` of your own with
+the default clone: in a partial clone with submodules checked out it fails with "upload-pack: not
+our ref".
+
+**Secrets**
+
+A `from_secret` that is missing, or not allowed for the event, fails the whole pipeline, and pull
+requests never get the (upload) secrets. So instead of relying on an empty `SSH_KEY`, only attach
+the secret to steps limited to where it exists, as in the upload example above.
+
+**Variables, in the config and in scripts**
+
+Woodpecker's variables are the `CI_*` ones; it sets the `DRONE_*` ones only for plugins, never for
+commands. In the config, replace `${DRONE_*}` references (see `compileTimeVars` in
+`internal/drone/vars.go` for the equivalents). Just as importantly, **scripts run by the steps**
+(upload scripts, packaging scripts, ...) that read `DRONE_*` from the environment must be changed
+to read the `CI_*` variables, or the step must pass them explicitly: without the translation they
+are simply unset. `grep -rn DRONE_` in the repository finds them. The common ones:
+
+| Drone | Woodpecker |
+|---|---|
+| `DRONE_COMMIT`, `DRONE_COMMIT_SHA` | `CI_COMMIT_SHA` |
+| `DRONE_BRANCH` | `CI_COMMIT_BRANCH` |
+| `DRONE_TAG` | `CI_COMMIT_TAG` |
+| `DRONE_PULL_REQUEST` | `CI_COMMIT_PULL_REQUEST` |
+| `DRONE_REPO` | `CI_REPO` |
+| `DRONE_BUILD_EVENT` | `CI_PIPELINE_EVENT` |
+| `DRONE_BUILD_NUMBER` | `CI_PIPELINE_NUMBER` |
+| `DRONE_BUILD_CREATED` | `CI_PIPELINE_CREATED` |
+| `DRONE_WORKSPACE` | `CI_WORKSPACE` |
+| `DRONE_STAGE_MACHINE` | `CI_MACHINE` |
+
+`DRONE_STAGE_OS` and `DRONE_STAGE_ARCH` have no equivalent; the config knows the platform, so set
+them (or better names) in the step's `environment` where scripts need them.
+
+**Afterwards**
+
+Once `.drone.jsonnet` is gone, the `DEPRECATED` workflow no longer appears. Pull request pipelines
+from jsonnet and Starlark configs still get the `All builds` workflow, so branch rules requiring
+`ci/woodpecker/pr/All builds` keep working. Plain YAML configs don't get it.
+
 ## Running the service
 
 Build a static binary (the binary re-executes itself to evaluate configs, so it is the only file
