@@ -285,7 +285,7 @@ func translateCommon(s, out map[string]any, pipelineEnv map[string]any, secrets 
 				return fmt.Errorf("commands: %w", err)
 			}
 		}
-		out["commands"] = rewritten
+		out["commands"] = append([]any{droneEnvCommand}, rewritten...)
 	}
 
 	env, err := objectField(s, "environment")

@@ -114,8 +114,10 @@ secret exists, since Woodpecker only resolves secrets for steps that will run:
   when: [{ event: push, repo: 'session-foundation/*' }]
 ```
 
-`${DRONE_*}` references are rewritten to the equivalent Woodpecker variables. See
-`internal/drone/testdata/*.golden.yaml` for what real configs translate to.
+`${DRONE_*}` references in the config are rewritten to the equivalent Woodpecker variables, and
+each step starts by exporting the `DRONE_*` environment variables Drone set (from the equivalent
+`CI_*` ones), since the scripts steps run read them directly and Woodpecker only sets them for
+plugins. See `internal/drone/testdata/*.golden.yaml` for what real configs translate to.
 
 ## Running the service
 

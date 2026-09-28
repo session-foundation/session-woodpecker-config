@@ -3,6 +3,7 @@ package drone
 import (
 	"flag"
 	"os"
+	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
@@ -88,8 +89,28 @@ func TestNullCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	cmds := wfs[0].Config["steps"].([]any)[0].(map[string]any)["commands"]
-	if !reflect.DeepEqual(cmds, []any{"a", "b"}) {
+	if !reflect.DeepEqual(cmds, []any{droneEnvCommand, "a", "b"}) {
 		t.Errorf("got commands %#v", cmds)
+	}
+}
+
+// TestDroneEnv runs the export command the way a step's shell would, with the values Woodpecker
+// sets, including ones that would break if they were pasted into the command or the config.
+func TestDroneEnv(t *testing.T) {
+	message := "Fix: \"quoted\" $HOME `ls`\nsecond line"
+	cmd := exec.Command("sh", "-e", "-c", droneEnvCommand+"\nprintf '%s|%s|%s|%s' \"$DRONE_COMMIT\" \"$DRONE_COMMIT_MESSAGE\" \"$DRONE_WORKSPACE\" \"$DRONE_REPO_SCM\"")
+	cmd.Env = []string{"CI_COMMIT_SHA=abc123", "CI_COMMIT_MESSAGE=" + message, "CI_WORKSPACE=/woodpecker/src/x"}
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "abc123|" + message + "|/woodpecker/src/x|git"; string(out) != want {
+		t.Errorf("got %q, want %q", out, want)
+	}
+	for d := range compileTimeVars {
+		if !strings.Contains(droneEnvCommand, " "+d+"=") {
+			t.Errorf("%s is not exported", d)
+		}
 	}
 }
 

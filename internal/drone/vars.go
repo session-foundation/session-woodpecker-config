@@ -2,7 +2,9 @@ package drone
 
 import (
 	"fmt"
+	"maps"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -54,14 +56,38 @@ var runtimeVars = map[string]string{
 	"DRONE_STAGE_ARCH":    "DRONE_STAGE_ARCH",
 }
 
-// runtimeAliases are the DRONE_* variables Woodpecker itself exports into every step's environment
-// for Drone compatibility (see pipeline/frontend/metadata/drone_compatibility.go in Woodpecker).
-var runtimeAliases = map[string]bool{
-	"DRONE_STEP_NUMBER":              true,
-	"DRONE_BUILD_STATUS":             true,
-	"DRONE_REPO_SCM":                 true,
-	"PULLREQUEST_DRONE_PULL_REQUEST": true,
+// runtimeAliases are the remaining DRONE_* variables Drone gave every step, with the shell
+// expression droneEnvCommand sets each one to.
+var runtimeAliases = map[string]string{
+	"DRONE_STEP_NUMBER":  `"$CI_STEP_NUMBER"`,
+	"DRONE_BUILD_STATUS": `"$CI_PIPELINE_STATUS"`,
+	"DRONE_REPO_SCM":     "git",
 }
+
+// droneEnvCommand exports the DRONE_* variables Drone gave every step, which the scripts Drone
+// configs run read directly.  Woodpecker only sets its Drone aliases for plugin steps, not for
+// commands.  They can't go in the step's environment either: Woodpecker substitutes ${VAR}s into
+// the config text before parsing it, and quotes only multi-line values, so an ordinary commit
+// message containing ": " would break the YAML.  Every CI_* variable is in the step's environment
+// at run time, so the shell copies them instead.
+var droneEnvCommand = func() string {
+	values := map[string]string{}
+	for d, ci := range compileTimeVars {
+		values[d] = `"$` + ci + `"`
+	}
+	for d, rt := range runtimeVars {
+		if d != rt {
+			values[d] = `"$` + rt + `"`
+		}
+	}
+	maps.Copy(values, runtimeAliases)
+	var b strings.Builder
+	b.WriteString("export")
+	for _, d := range slices.Sorted(maps.Keys(values)) {
+		b.WriteString(" " + d + "=" + values[d])
+	}
+	return b.String()
+}()
 
 // A run of $s followed by a DRONE_* name.  Both Drone and Woodpecker substitute only the braced
 // ${NAME} form (drone/envsubst leaves a bare $NAME alone), and only after an odd number of $s,
@@ -93,7 +119,7 @@ func rewriteVars(s string, shell bool) (string, error) {
 			}
 			return dollars + brace + rt
 		}
-		if !substituted && (runtimeAliases[name] || compileTimeVars[name] != "") {
+		if !substituted && (runtimeAliases[name] != "" || compileTimeVars[name] != "") {
 			return m
 		}
 		err = fmt.Errorf("unsupported Drone variable %s", name)
