@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
 	"path"
 	"slices"
@@ -190,7 +191,51 @@ func (s *Server) process(ctx context.Context, req *request) ([]configFile, error
 	if len(out) == 0 {
 		return nil, &sandbox.ConfigError{Msg: "config produced no workflows"}
 	}
+
+	// A restarted pipeline already has it, among the workflows sent back.
+	if event, _ := req.Pipeline["event"].(string); event == "pull_request" {
+		if _, ok := sources[allBuildsName]; !ok {
+			w := allBuilds(slices.Sorted(maps.Keys(sources)))
+			y, err := w.YAML()
+			if err != nil {
+				return nil, err
+			}
+			if err := add(w.Name, allBuildsKey+"/"+w.FileName(), orderMarker+allBuildsKey+"\n"+y, "this service"); err != nil {
+				return nil, err
+			}
+		}
+	}
 	return out, nil
+}
+
+// allBuildsName is the workflow that stands for a pull request's whole pipeline, so that GitHub
+// can require it: GitHub can only require status checks by exact name, and Woodpecker reports one
+// per workflow.
+const allBuildsName = "All builds"
+
+// allBuildsKey sorts after every other workflow's key (which starts with a config file name).
+const allBuildsKey = "~"
+
+// allBuilds is a trivial workflow that only runs once every other workflow has succeeded.  If any
+// of them fails it is skipped, which leaves its status pending, so it still blocks merging.  The
+// dependencies are optional so that workflows not run for this pipeline are ignored rather than
+// removing this one too.
+func allBuilds(names []string) workflow.Workflow {
+	deps := make([]any, len(names))
+	for i, n := range names {
+		deps[i] = map[string]any{"name": n, "optional": true}
+	}
+	return workflow.Workflow{Name: allBuildsName, Config: map[string]any{
+		"skip_clone": true,
+		"labels":     map[string]any{"backend": "docker"},
+		"when":       []any{map[string]any{"event": []any{"pull_request"}}},
+		"depends_on": deps,
+		"steps": []any{map[string]any{
+			"name":     "all builds passed",
+			"image":    "busybox",
+			"commands": []any{"true"},
+		}},
+	}}
 }
 
 // Woodpecker orders a pipeline's workflows by sorting their file names, but names each workflow

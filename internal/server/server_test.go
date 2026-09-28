@@ -242,6 +242,58 @@ func TestOrder(t *testing.T) {
 	}
 }
 
+func TestAllBuilds(t *testing.T) {
+	f := setup(t)
+	src := configFile{".woodpecker/build.jsonnet", "[{name: 'b', steps: []}, {name: 'a', steps: []}]"}
+
+	status, body := f.postFor(t, "session-foundation/libquic", "push", src)
+	if status != http.StatusOK {
+		t.Fatalf("push: got status %d: %s", status, body)
+	}
+	for _, c := range decodeConfigs(t, body) {
+		if workflow.NameFromFile(c.Name) == allBuildsName {
+			t.Errorf("push pipeline got %q", c.Name)
+		}
+	}
+
+	status, body = f.postFor(t, "session-foundation/libquic", "pull_request", src)
+	if status != http.StatusOK {
+		t.Fatalf("pull_request: got status %d: %s", status, body)
+	}
+	configs := decodeConfigs(t, body)
+	files := names(configs)
+	slices.Sort(files)
+	if got := workflow.NameFromFile(files[len(files)-1]); len(files) != 3 || got != allBuildsName {
+		t.Fatalf("expected the two workflows then %q in sorted order, got %q", allBuildsName, files)
+	}
+	var all configFile
+	for _, c := range configs {
+		if workflow.NameFromFile(c.Name) == allBuildsName {
+			all = c
+		}
+	}
+	for _, want := range []string{"- name: a\n      optional: true", "- name: b\n      optional: true", "- pull_request"} {
+		if !strings.Contains(all.Data, want) {
+			t.Errorf("%s lacks %q:\n%s", allBuildsName, want, all.Data)
+		}
+	}
+
+	// A restart sends it back along with the others, and it must not be added twice.
+	stored := make([]configFile, len(configs))
+	for i, c := range configs {
+		stored[i] = configFile{workflow.NameFromFile(c.Name), c.Data}
+	}
+	status, body = f.postFor(t, "session-foundation/libquic", "pull_request", stored...)
+	if status != http.StatusOK {
+		t.Fatalf("restart: got status %d: %s", status, body)
+	}
+	files = names(decodeConfigs(t, body))
+	slices.Sort(files)
+	if got := workflow.NameFromFile(files[len(files)-1]); len(files) != 3 || got != allBuildsName {
+		t.Errorf("restart: expected the two workflows then %q in sorted order, got %q", allBuildsName, files)
+	}
+}
+
 func TestDrone(t *testing.T) {
 	status, body := setup(t).post(t, configFile{".drone.jsonnet", `[{kind: 'pipeline', name: 'Debian sid (amd64)', steps: [{name: 'build', image: 'debian', commands: ['echo ${DRONE_COMMIT}']}]}]`})
 	if status != http.StatusOK {

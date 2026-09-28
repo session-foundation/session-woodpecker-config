@@ -72,6 +72,12 @@ Some things to be aware of:
   name, so the generated files are named `<config file>/<index>/<workflow name>.yaml`, and since
   restarting a pipeline only has the stored workflows, each also starts with a
   `# session-woodpecker-config order:` comment that restores the order.
+- Pull request pipelines get one more workflow, `All builds`, which depends on all the others and
+  only runs if they all succeed.  GitHub can only require status checks by exact name, and
+  Woodpecker reports one per workflow, so require `ci/woodpecker/pr/All builds` in branch rules
+  instead of listing every workflow.  If any workflow fails it is skipped, which GitHub shows as
+  pending.  Steps with `failure: ignore` don't fail their workflow, so they don't stop it.  Plain
+  YAML configs don't get it, since they are passed through unchanged.
 - Woodpecker substitutes `${VAR}` references in the generated config before running it, so shell
   variables must be written `$${VAR}` (or as bare `$VAR`, which Woodpecker leaves alone).
 - Evaluation is limited to 5 seconds and 1 GiB of memory by default; errors, including exceeding
