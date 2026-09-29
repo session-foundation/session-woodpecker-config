@@ -531,7 +531,7 @@ func Deprecated(helpURL string) workflow.Workflow {
 		Name: "DEPRECATED",
 		Config: map[string]any{
 			"skip_clone": true,
-			"labels":     map[string]any{"backend": "docker"},
+			"labels":     workflow.TrivialLabels(),
 			"when":       []any{map[string]any{"event": slices.Clone(allEvents)}},
 			"steps": []any{map[string]any{
 				"name":  "Drone-CI deprecated",

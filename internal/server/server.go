@@ -227,7 +227,7 @@ func allBuilds(names []string) workflow.Workflow {
 	}
 	return workflow.Workflow{Name: allBuildsName, Config: map[string]any{
 		"skip_clone": true,
-		"labels":     map[string]any{"backend": "docker"},
+		"labels":     workflow.TrivialLabels(),
 		"when":       []any{map[string]any{"event": []any{"pull_request"}}},
 		"depends_on": deps,
 		"steps": []any{map[string]any{

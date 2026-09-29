@@ -237,6 +237,18 @@ logged and the previous list kept.
 
 See `-help` for resource limits and other options.
 
+The workflows the service adds that do next to nothing (`All builds` and `DEPRECATED`) carry the
+label `trivial: yes`, so that a small dedicated Docker agent can run them without waiting for a free
+build slot, and they can't be scheduled on the build agents at all:
+
+```
+WOODPECKER_AGENT_LABELS=!trivial=yes
+WOODPECKER_MAX_WORKFLOWS=4
+WOODPECKER_BACKEND_DOCKER_LIMIT_MEM=16777216
+```
+
+(The `!` makes the agent take only workflows with that label.)
+
 Woodpecker server configuration:
 
 ```

@@ -31,6 +31,13 @@ func (w Workflow) YAML() (string, error) {
 	return string(b), nil
 }
 
+// TrivialLabels are the agent labels for the workflows this service adds that do next to nothing
+// (the All builds check and the .drone.jsonnet deprecation notice).  They go to a dedicated agent
+// with WOODPECKER_AGENT_LABELS=!trivial=yes, so that they don't wait for a free build slot.
+func TrivialLabels() map[string]any {
+	return map[string]any{"backend": "docker", "trivial": "yes"}
+}
+
 var slash = regexp.MustCompile(`\s*/\s*`)
 
 // SanitizeName makes name safe to use as a workflow name.  Woodpecker takes a workflow's name from
