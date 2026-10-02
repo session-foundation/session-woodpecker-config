@@ -186,6 +186,22 @@ are simply unset. `grep -rn DRONE_` in the repository finds them. The common one
 `DRONE_STAGE_OS` and `DRONE_STAGE_ARCH` have no equivalent; the config knows the platform, so set
 them (or better names) in the step's `environment` where scripts need them.
 
+**Hosts and images**
+
+The oxen.rocks hosts are deprecated, so a migration should also move off them, in the config and in
+the scripts it runs (`grep -rn oxen.rocks` finds them):
+
+- `registry.oxen.rocks/` images become `registry.session.codes/`, with the same image names.
+- An image name with a `lokinet-ci-` prefix (`registry.oxen.rocks/lokinet-ci-debian-sid`, say) is no
+  longer supported: drop the prefix (`registry.session.codes/debian-sid`).
+- `oxen.rocks` for dependency downloads and build uploads becomes `builds.session.codes`: for
+  example `-DLOCAL_MIRROR=https://builds.session.codes/deps`, and upload scripts' `sftp` to
+  `drone@builds.session.codes` with upload paths under `builds.session.codes/` instead of
+  `oxen.rocks/`.
+- The `deb.oxen.io` apt repository is now preferably `deb.session.foundation`: the same repository
+  and signing key under a different name, so only the domain changes, in sources entries and in
+  key URLs (`https://deb.session.foundation/pub.gpg`).
+
 **Restructure, don't transliterate**
 
 The jsonnet helpers translate almost mechanically to Starlark functions. Resist stopping there: a
