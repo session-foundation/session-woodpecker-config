@@ -186,6 +186,41 @@ are simply unset. `grep -rn DRONE_` in the repository finds them. The common one
 `DRONE_STAGE_OS` and `DRONE_STAGE_ARCH` have no equivalent; the config knows the platform, so set
 them (or better names) in the step's `environment` where scripts need them.
 
+**Restructure, don't transliterate**
+
+The jsonnet helpers translate almost mechanically to Starlark functions. Resist stopping there: a
+line-for-line port keeps years of Drone-era accretion (a function parameter per option, free-form
+"extra" strings, copy-pasted platform variants, workarounds nobody remembers). The migration is the
+cheapest time to clean that up. Some things that usually help:
+
+- **Make build options data.** Instead of `lto=`, `werror=`, `build_tests=`, ... parameters plus a
+  `cmake_extra` string, keep a dict of default options that each build overrides, rendered into
+  `-D` flags in one place (`True`/`False` to `ON`/`OFF`). Builds then say only what is different
+  about them. Drop options that just restate the build system's own defaults.
+- **Share the build sequence across platforms.** Linux (docker) and macOS (local) workflows tend to
+  differ only in setup (installing packages, or exporting `SDKROOT`) and labels; the
+  configure/build/test/package commands can be one function that both use.
+- **Let the data imply the steps.** For example, a build that is given packaging commands also gets
+  the upload step, rather than needing a separate `upload=True` flag that has to be kept in sync.
+- **One `workflow()` helper** for `labels`, `when` and `clone`, so per-workflow settings aren't
+  repeated in every builder function.
+- **Delete dead code** rather than porting it: commented-out pipelines, parameters no caller uses,
+  and scripts that only those referenced. Git history keeps them.
+- **Prefer what the environment already knows** in scripts, e.g. `uname -s` rather than a
+  replacement for `DRONE_STAGE_OS`.
+- **Name workflows without `/`** so the names aren't rewritten (see above).
+
+Starlark has no f-strings, so use `%` formatting; `x if cond else y`, `dict(base, **overrides)`,
+`d.update()`, list comprehensions and `type(v) == "bool"` cover most of what jsonnet configs do.
+
+Keep the restructuring behaviour-neutral, and make deliberate behaviour changes (different
+parallelism, script semantics, ...) in separate commits. That way the conversion can be checked by
+rendering both configs and diffing the YAML: a throwaway test in this repository that evaluates the
+old file with `eval.Jsonnet` and `drone.Translate` and the new one with `eval.Starlark` and
+`workflow.FromResult`, then prints each workflow's `YAML()`, is enough. The only differences should
+be the intended ones: clone settings, the `DRONE_*` exports, secrets moved to their own steps, and
+so on.
+
 **Afterwards**
 
 Once `.drone.jsonnet` is gone, the `DEPRECATED` workflow no longer appears. Pull request pipelines
