@@ -190,6 +190,38 @@ func TestMixedDirectory(t *testing.T) {
 	}
 }
 
+func TestOverride(t *testing.T) {
+	status, body := setup(t).post(t,
+		configFile{".woodpecker/build.star", "def main(ctx):\n    return [{\"name\": \"upstream\", \"steps\": []}]"},
+		configFile{".woodpecker/docs.yaml", "steps: []\n"},
+		configFile{".woodpecker/override-lint.jsonnet", "{name: 'lint', steps: []}"},
+		configFile{".woodpecker/override.star", "def main(ctx):\n    return [{\"name\": \"Debian sid\", \"steps\": []}]"},
+	)
+	if status != http.StatusOK {
+		t.Fatalf("got status %d: %s", status, body)
+	}
+	want := []string{".woodpecker/override-lint.jsonnet/0/lint.yaml", ".woodpecker/override.star/0/Debian sid.yaml"}
+	if got := names(decodeConfigs(t, body)); !slices.Equal(got, want) {
+		t.Errorf("got configs %q, want %q", got, want)
+	}
+}
+
+// TestOverrideYAML checks that YAML overrides, which need no converting, still replace the other
+// files rather than being passed through along with them.
+func TestOverrideYAML(t *testing.T) {
+	status, body := setup(t).post(t,
+		configFile{".woodpecker/build.star", "def main(ctx):\n    return [{\"name\": \"upstream\", \"steps\": []}]"},
+		configFile{".woodpecker/override.yaml", "steps: []\n"},
+	)
+	if status != http.StatusOK {
+		t.Fatalf("got status %d: %s", status, body)
+	}
+	want := []string{".woodpecker/override.yaml"}
+	if got := names(decodeConfigs(t, body)); !slices.Equal(got, want) {
+		t.Errorf("got configs %q, want %q", got, want)
+	}
+}
+
 // TestOrder checks that sorting the file names, as Woodpecker does, keeps the order the config
 // listed its workflows in, and that the names Woodpecker derives from the files are unchanged.
 func TestOrder(t *testing.T) {

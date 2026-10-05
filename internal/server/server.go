@@ -3,7 +3,7 @@
 // Woodpecker POSTs the config files it fetched for a pipeline; jsonnet and Starlark files (and a
 // legacy .drone.jsonnet) are evaluated into Woodpecker workflows, and anything else is passed
 // through unchanged.  If nothing needed converting the response is 204, telling Woodpecker to use
-// the files as they are.
+// the files as they are.  If there are any .woodpecker/override* files, only they are used.
 package server
 
 import (
@@ -136,11 +136,35 @@ func (s *Server) verify(r *http.Request) error {
 	return httpsign.VerifyRequest(signatureName, *s.verifier, r)
 }
 
+// OverridePrefix starts the names of config files in .woodpecker/ that, when there are any,
+// replace all the others.  They let a branch that carries a project's own .woodpecker/ configs
+// unchanged, such as a Debian packaging branch that merges from upstream, run a different set of
+// workflows without conflicting with them.
+const OverridePrefix = ".woodpecker/override"
+
+// overrides returns the override files among files, or files itself if there are none.
+func overrides(files []configFile) []configFile {
+	var out []configFile
+	for _, f := range files {
+		if strings.HasPrefix(f.Name, OverridePrefix) {
+			out = append(out, f)
+		}
+	}
+	if out == nil {
+		return files
+	}
+	return out
+}
+
 // process converts req's config files, returning nil if none of them needed converting.
 func (s *Server) process(ctx context.Context, req *request) ([]configFile, error) {
+	files := overrides(req.Configuration)
+
 	buildCtx := map[string]any{"repo": req.Repo, "pipeline": req.Pipeline}
 	var out []configFile
-	converted := false
+	// Dropping files the overrides replace is a change Woodpecker has to be told about, even if the
+	// overrides themselves are plain YAML.
+	converted := len(files) != len(req.Configuration)
 	sources := map[string]string{}
 	add := func(name, fileName, data, source string) error {
 		if prev, ok := sources[name]; ok {
@@ -152,7 +176,7 @@ func (s *Server) process(ctx context.Context, req *request) ([]configFile, error
 	}
 
 	secrets := s.secretsAllowed(req)
-	for _, f := range req.Configuration {
+	for _, f := range files {
 		wfs, err := s.convert(ctx, f, buildCtx, secrets)
 		if err != nil {
 			return nil, err

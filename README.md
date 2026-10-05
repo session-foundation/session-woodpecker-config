@@ -23,6 +23,12 @@ A repository uses whichever of these Woodpecker finds first (see the server conf
 2. `.woodpecker.jsonnet`, `.woodpecker.star`, `.woodpecker.yaml` or `.woodpecker.yml`
 3. `.drone.jsonnet` (deprecated)
 
+If any config files in `.woodpecker/` have names starting with `override` (`override.star`,
+`override-lint.jsonnet`, ...), only those are used, and the rest of `.woodpecker/` is ignored. This
+is for branches that merge a project's own configs but need to run something else, such as Debian
+packaging branches: they add their overrides and keep the project's files unchanged, so merges don't
+conflict.
+
 A jsonnet or Starlark config produces either a list of workflows, each with a `name`, or a single
 workflow, which is named after the file. Apart from `name`, a workflow is exactly what you would
 write in a [Woodpecker YAML workflow][syntax]. Each workflow runs separately, on an agent matching
