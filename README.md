@@ -145,6 +145,12 @@ becomes. The things that need changing:
   written as the explicit list of events wanted; Drone's `promote`/`rollback` events are
   `deployment` and `custom` is `manual`.
 - Put Drone's pipeline-level `environment` on each step, as the translation does.
+- Write `: ` where a Drone pipeline name has `/`. A `/` does not work in a Woodpecker workflow
+  name, which is taken from the base name of its config file and so would be cut at the last `/`.
+  The translation rewrites it to `: ` for that reason, so `Debian sid/Debug` has been running as
+  `Debian sid: Debug`: spelling it that way keeps the workflow, and the status check it reports,
+  under the name it already has. (The service would rewrite a `/` in a native config too, but the
+  config should say the name it gets.) Don't drop the separator instead: that renames the workflow.
 
 **Cloning**
 
@@ -230,7 +236,6 @@ cheapest time to clean that up. Some things that usually help:
   and scripts that only those referenced. Git history keeps them.
 - **Prefer what the environment already knows** in scripts, e.g. `uname -s` rather than a
   replacement for `DRONE_STAGE_OS`.
-- **Name workflows without `/`** so the names aren't rewritten (see above).
 
 Starlark has no f-strings, so use `%` formatting; `x if cond else y`, `dict(base, **overrides)`,
 `d.update()`, list comprehensions and `type(v) == "bool"` cover most of what jsonnet configs do.
